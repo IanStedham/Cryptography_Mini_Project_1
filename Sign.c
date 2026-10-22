@@ -435,11 +435,49 @@ void Encrypt_Message(const unsigned char *key, const unsigned char *message, siz
 /*============================
     Signcrypt
 ==============================*/
-void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, size_t message_len, BIGNUM *alice_private_key, BIGNUM *bob_public_key, BIGNUM **r, BIGNUM **s, unsigned char **ciphertext, size_t *ciphertext_len, unsigned char *seed, size_t seed_len, int seed_offset)
+void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, size_t message_len, BIGNUM *alice_private_key, 
+    BIGNUM *bob_public_key, BIGNUM **r, BIGNUM **s, unsigned char **ciphertext, size_t *ciphertext_len, unsigned char *seed, 
+    size_t seed_len, int seed_offset)
 {
-/*============================
-    YOUR CODE HERE
-==============================*/
+    BN_CTX *bn_ctx = BN_CTX_new();
+    int prng_output_size = 32; // modify after fixing KeyGen
+
+    // 1. Generate random k using PRNG with modified seed
+    unsigned char seed_cpy[32] = {0};
+    size_t copy_len = strlen((char*)seed) < 32 ? strlen((char*)seed) : 32;
+    memcpy(seed_cpy, seed, copy_len);
+    seed_cpy[31] += (unsigned char)seed_offset;
+    unsigned char *prng = PRNG(seed_cpy, (size_t)32, (size_t)prng_output_size);
+    BIGNUM *k = BN_new();
+    BN_bin2bn(prng, prng_output_size, k);
+
+    // 2. Compute w = y_b^k mod p (shared secret)
+    BIGNUM *w = BN_new();
+    BN_mod_exp(w, bob_public_key, k, p, bn_ctx);
+
+    // 3. Derive encryption key K_e = Hash_G(w)
+    BIGNUM *K_e = BN_new();
+    Hash_G(w, K_e, prng_output_size);
+
+    // 4. Encrypt the message using K_e
+    // K_e as unsigned char?
+    Encrypt_Message(K_e, message, message_len, *ciphertext, ciphertext_len, seed_cpy, seed_len);
+
+    // 5. Compute r = Hash_H(m, w)
+    BIGNUM *r_bn = BN_new();
+    Hash_H(message, message_len, w, r_bn);
+
+    // 6. Compute s = x/(r + x_a) mod q
+    BIGNUM *s_bn = BN_new();
+    BIGNUM *remainder = BN_new();
+    BN_add(s_bn, r_bn, alice_private_key);
+    BN_div(s_bn, remainder, k, s_bn, bn_ctx);
+    BN_mod(s_bn, s_bn, q, bn_ctx);
+
+    // 7. Compute c = E_k(m) (encrypt the message)
+    Encrypt_Message(K_e, message, message_len, *ciphertext, ciphertext_len, seed_cpy, seed_len);
+
+    BN_CTX_free(bn_ctx);
 }
 
 /*============================

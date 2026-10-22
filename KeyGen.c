@@ -369,16 +369,20 @@ unsigned char* PRNG(unsigned char *seed, size_t seed_len, size_t output_len)
 void Generate_Key_Pair(BIGNUM *p, BIGNUM *q, BIGNUM *g, BIGNUM **private_key, BIGNUM **public_key, unsigned char *seed, int seed_offset)
 {
     BN_CTX *bn_ctx = BN_CTX_new();
+    int prng_output_size = 56;
 
     // 1. Create a modified seed with the offset
-    seed[31] += (unsigned char)seed_offset;
+    unsigned char seed_cpy[32] = {0};
+    size_t copy_len = strlen((char*)seed) < 32 ? strlen((char*)seed) : 32;
+    memcpy(seed_cpy, seed, copy_len);
+    seed_cpy[31] += (unsigned char)seed_offset;
 
     // 2. Use PRNG to generate random bytes
-    unsigned char *prng = PRNG(seed, (size_t)32, (size_t)BN_num_bytes(q));
+    unsigned char *prng = PRNG(seed_cpy, (size_t)32, (size_t)prng_output_size);
     
     // 3. Convert random bytes to BIGNUM for private key
     *private_key = BN_new();
-    BN_bin2bn(prng, BN_num_bytes(q), *private_key);
+    BN_bin2bn(prng, prng_output_size, *private_key);
 
     // 4. Ensure private key is in range [1, q-1]
     BN_mod(*private_key, *private_key, q, bn_ctx);
@@ -386,7 +390,7 @@ void Generate_Key_Pair(BIGNUM *p, BIGNUM *q, BIGNUM *g, BIGNUM **private_key, BI
     // 5. Calculate public key as g^x mod p
     *public_key = BN_new();
     BN_mod_exp(*public_key, g, *private_key, p, bn_ctx);
-;
+
     BN_CTX_free(bn_ctx);
 }
 
