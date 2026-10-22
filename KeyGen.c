@@ -369,13 +369,13 @@ unsigned char* PRNG(unsigned char *seed, size_t seed_len, size_t output_len)
 void Generate_Key_Pair(BIGNUM *p, BIGNUM *q, BIGNUM *g, BIGNUM **private_key, BIGNUM **public_key, unsigned char *seed, int seed_offset)
 {
     BN_CTX *bn_ctx = BN_CTX_new();
-    int prng_output_size = 56;
+    int prng_output_size = 28;
 
     // 1. Create a modified seed with the offset
     unsigned char seed_cpy[32] = {0};
     size_t copy_len = strlen((char*)seed) < 32 ? strlen((char*)seed) : 32;
     memcpy(seed_cpy, seed, copy_len);
-    seed_cpy[31] += (unsigned char)seed_offset;
+    seed_cpy[31] = (unsigned char)seed_offset;
 
     // 2. Use PRNG to generate random bytes
     unsigned char *prng = PRNG(seed_cpy, (size_t)32, (size_t)prng_output_size);
