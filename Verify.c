@@ -410,11 +410,42 @@ int Decrypt_Message(const unsigned char *key, const unsigned char *ciphertext, s
 /*============================
     Unsigncrypt
 ==============================*/
-int Unsigncrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, BIGNUM *r, BIGNUM *s, const unsigned char *ciphertext, size_t ciphertext_len, BIGNUM *bob_private_key, BIGNUM *alice_public_key, unsigned char **message, size_t *message_len)
+int Unsigncrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, BIGNUM *r, BIGNUM *s, const unsigned char *ciphertext, size_t ciphertext_len, 
+    BIGNUM *bob_private_key, BIGNUM *alice_public_key, unsigned char **message, size_t *message_len)
 {
-/*============================
-    YOUR CODE HERE
-==============================*/
+    BN_CTX *bn_ctx = BN_CTX_new();
+
+    // 1. Compute w = (y_a * g^r)^(s*x_b) mod p
+    BIGNUM *w = BN_new();
+    BIGNUM *g_r = BN_new();
+    BIGNUM *s_x_b = BN_new();
+    BN_mod_exp(g_r, g, r, p, bn_ctx);
+    BN_mod_mul(s_x_b, s, bob_private_key, p, bn_ctx);
+    BN_mod_mul(w, alice_public_key, g_r, p, bn_ctx);
+    BN_mod_exp(w, w, s_x_b, p, bn_ctx);
+
+    // 2. Derive encryption key k = Hash_G(w)
+    unsigned char *K_e = malloc(16);
+    Hash_G(w, K_e, 16);
+
+    // 3. Decrypt the ciphertext using D_k(c)
+    int decrypt_val = Decrypt_Message(K_e, ciphertext, ciphertext_len, message, message_len);
+
+    // 4. Compute r’ = Hash_H(m, w)
+    BIGNUM *r_prime = BN_new();
+    Hash_H(*message, *message_len, w, r_prime);
+
+    BN_free(w);
+    BN_free(g_r);
+    BN_free(s_x_b);
+
+    // 5. Verify that r = r’ and return result
+    if (BN_cmp(r, r_prime) == 0) {
+        BN_free(r_prime);
+        return 1;
+    }
+    BN_free(r_prime);
+    return 0;
 }
 
 /*============================
