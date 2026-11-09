@@ -437,9 +437,48 @@ void Encrypt_Message(const unsigned char *key, const unsigned char *message, siz
 ==============================*/
 void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, size_t message_len, BIGNUM *alice_private_key, BIGNUM *bob_public_key, BIGNUM **r, BIGNUM **s, unsigned char **ciphertext, size_t *ciphertext_len, unsigned char *seed, size_t seed_len, int seed_offset)
 {
-/*============================
-    YOUR CODE HERE
-==============================*/
+    // 1. Generate random k using PRNG with modified seed
+    unsigned char seed_cpy[32] = {0};
+    memcpy(seed_cpy, seed, seed_len);
+    seed_cpy[31] = (unsigned char)seed_offset;
+    unsigned char *kbin = PRNG(seed_cpy, 32, 32);
+    BIGNUM *k_bn = BN_new();
+    BN_bin2bn(kbin, 32, k_bn);
+
+    // 2. Compute w = y_b^k mod p (shared secret)
+    BN_CTX *bn_ctx = BN_CTX_new();
+    BIGNUM *w = BN_new();
+    BN_mod_exp(w, bob_public_key, k_bn, q, bn_ctx);
+
+    // 3. Derive encryption key K_e = Hash_G(w)
+    unsigned char k_e[16];
+    Hash_G(w, k_e, len(k_e));
+
+    // 4. Encrypt the message using K_e
+    Encrypt_Message(k_e, message, message_len, ciphertext, ciphertext_len, seed_cpy, seed_len);
+
+    // 5. Compute r = Hash_H(m, w)
+    //BIGNUM *r = BN_new();
+    Hash_H(message, message_len, w, r);
+
+    // 6. Compute s = x/(1 + x_a * r) mod q
+    BIGNUM *temp = BN_new();
+    BIGNUM *denom = BN_new();
+    BN_mod_mul(temp, alice_private_key, *r, q, bn_ctx);
+    BN_add(denom, BN_value_one(), temp);
+    BN_mod(denom, denom, q, bn_ctx);
+    BN_mod_inverse(denom, denom, q, bn_ctx);
+    BN_mod_mul(*s, k_bn, denom, q, bn_ctx);
+
+    // 7. Compute c = E_k(m) (encrypt the message)
+    Encrypt_Message(k_e, message, message_len, ciphertext, ciphertext_len, seed_cpy, seed_len);
+       
+    BN_free(k_bn);
+    BN_free(w);
+    BN_free(bn_ctx);
+    BN_free(temp);
+    BN_free(denom);
+
 }
 
 /*============================
