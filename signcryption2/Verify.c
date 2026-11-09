@@ -412,9 +412,55 @@ int Decrypt_Message(const unsigned char *key, const unsigned char *ciphertext, s
 ==============================*/
 int Unsigncrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, BIGNUM *r, BIGNUM *s, const unsigned char *ciphertext, size_t ciphertext_len, BIGNUM *bob_private_key, BIGNUM *alice_public_key, unsigned char **message, size_t *message_len)
 {
-/*============================
-    YOUR CODE HERE
-==============================*/
+    // 1. Compute w = (g * y_a^r)^(s*x_b) mod p
+    BN_CTX *bn_ctx = BN_CTX_new();
+    BIGNUM *w = BN_new();
+    BIGNUM *base = BN_new();
+    BIGNUM *y_a_r = BN_new();
+    BIGNUM *s_x_b = BN_new();
+    BN_mod_exp(y_a_r, alice_public_key, r, p, bn_ctx);
+    BN_mod_mul(base, g, y_a_r, p, bn_ctx);
+    BN_mod_mul(s_x_b, s, bob_private_key, q, bn_ctx); //exponents are reduced mod q
+    BN_mod_exp(w, base, s_x_b, p, bn_ctx);
+
+    // 2. Derive encryption key k = Hash_G(w)
+    //BIGNUM *k = BN_new();
+    unsigned char k_e[16];
+    Hash_G(w, k_e, 16);
+
+    // 3. Decrypt the ciphertext using D_k(c)
+    int ret = Decrypt_Message(k_e, ciphertext, ciphertext_len, message, message_len);
+    if (ret != 1) {
+        printf("Decryption failed\n");
+        free(*message);        // Decrypt_Message malloc'd this; main only frees it on success
+        *message = NULL;
+        BN_free(w);
+        BN_free(base);
+        BN_free(y_a_r);
+        BN_free(s_x_b);
+        BN_CTX_free(bn_ctx);
+        return 0;
+    }
+
+    // 4. Compute r’ = Hash_H(m, w)
+    //unsigned char r_prime[SHA256_DIGEST_LENGTH];
+    BIGNUM *r_prime = BN_new();
+    Hash_H(*message, *message_len, w, r_prime);
+
+
+    BN_free(w);
+    BN_free(base);
+    BN_free(y_a_r);
+    BN_free(s_x_b);
+    //BN_free(k);
+
+    // 5. Verify that r = r’ and return result
+    int valid = (BN_cmp(r, r_prime) == 0);   // 1 if r = r’, 0 if not
+
+    BN_free(r_prime);
+    BN_CTX_free(bn_ctx);
+
+    return valid;
 }
 
 /*============================
