@@ -452,7 +452,7 @@ void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, si
 
     // 3. Derive encryption key K_e = Hash_G(w)
     unsigned char k_e[16];
-    Hash_G(w, k_e, len(k_e));
+    Hash_G(w, k_e, 16);
 
     // 4. Encrypt the message using K_e
     Encrypt_Message(k_e, message, message_len, ciphertext, ciphertext_len, seed_cpy, seed_len);
