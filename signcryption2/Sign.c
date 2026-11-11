@@ -458,8 +458,10 @@ void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, si
     Encrypt_Message(k_e, message, message_len, ciphertext, ciphertext_len, seed_cpy, seed_len);
 
     // 5. Compute r = Hash_H(m, w)
+    *r = BN_new();
+    *s = BN_new();
     //BIGNUM *r = BN_new();
-    Hash_H(message, message_len, w, r);
+    Hash_H(message, message_len, w, *r);
 
     // 6. Compute s = x/(1 + x_a * r) mod q
     BIGNUM *temp = BN_new();
