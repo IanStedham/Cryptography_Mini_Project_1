@@ -477,11 +477,11 @@ void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, si
        
     BN_free(k_bn);
     BN_free(w);
-    BN_free(bn_ctx);
+    BN_CTX_free(bn_ctx);
     BN_free(temp);
     BN_free(denom);
-    BN_free(r);
-    BN_free(s);
+    //BN_free(r);
+    //BN_free(s);
 
 }
 
