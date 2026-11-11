@@ -448,7 +448,7 @@ void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, si
     // 2. Compute w = y_b^k mod p (shared secret)
     BN_CTX *bn_ctx = BN_CTX_new();
     BIGNUM *w = BN_new();
-    BN_mod_exp(w, bob_public_key, k_bn, q, bn_ctx);
+    BN_mod_exp(w, bob_public_key, k_bn, p, bn_ctx);
 
     // 3. Derive encryption key K_e = Hash_G(w)
     unsigned char k_e[16];
@@ -480,6 +480,8 @@ void Signcrypt(BIGNUM *p, BIGNUM *q, BIGNUM *g, const unsigned char *message, si
     BN_free(bn_ctx);
     BN_free(temp);
     BN_free(denom);
+    BN_free(r);
+    BN_free(s);
 
 }
 
